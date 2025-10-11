@@ -1,0 +1,215 @@
+services:
+  # SQL Server Database
+  # sqlserver:
+  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #   container_name: elearning-sqlserver
+  #   environment:
+  #     - ACCEPT_EULA=Y
+  #     - SA_PASSWORD=ojkiyd,kd8iy[
+  #     - MSSQL_PID=Developer
+  #   ports:
+  #     - "1433:1433"
+  #   volumes:
+  #     - sqlserver-data:/var/opt/mssql
+  #   networks:
+  #     - elearning-network
+  #   healthcheck:
+  #     test: /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P ojkiyd,kd8iy[ -Q "SELECT 1" || exit 1
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 10
+  #     start_period: 10s
+
+  # RabbitMQ Message Queue
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: elearning-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin123
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - elearning-network
+    user: "999:999"  # Fixes permission error (RabbitMQ UID=999 inside container)
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: elearning-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - elearning-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # User Service
+  user-service:
+    build:
+      context: ./backend
+      dockerfile: Services/UserService/UserService.API/Dockerfile
+    container_name: elearning-user-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=UserServiceDb;User Id=sa;Password=ojkiyd,kd8iy[;TrustServerCertificate=True;
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+      - JwtSettings__Secret=your-super-secret-key-min-32-characters-long-for-security
+      - JwtSettings__Issuer=ELearningPlatform
+      - JwtSettings__Audience=ELearningUsers
+      - JwtSettings__ExpiryInMinutes=60
+    ports:
+      - "5001:5001"
+    depends_on:
+      # sqlserver:
+      #   condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - elearning-network
+    restart: on-failure
+
+  # Course Service
+  course-service:
+    build:
+      context: ./backend
+      dockerfile: Services/CourseService/CourseService.API/Dockerfile
+    container_name: elearning-course-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5002
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CourseServiceDb;User Id=sa;Password=ojkiyd,kd8iy[;TrustServerCertificate=True;
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    ports:
+      - "5002:5002"
+    depends_on:
+      # sqlserver:
+      #   condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - elearning-network  
+    restart: on-failure
+
+  # Subscription Service
+  subscription-service:
+    build:
+      context: ./backend
+      dockerfile: Services/SubscriptionService/SubscriptionService.API/Dockerfile
+    container_name: elearning-subscription-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5003
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=SubscriptionServiceDb;User Id=sa;Password=ojkiyd,kd8iy[;TrustServerCertificate=True;
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    ports:
+      - "5003:5003"
+    depends_on:
+      # sqlserver:
+      #   condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - elearning-network   
+    restart: on-failure
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ./backend
+      dockerfile: Services/PaymentService/PaymentService.API/Dockerfile
+    container_name: elearning-payment-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5004
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=PaymentServiceDb;User Id=sa;Password=ojkiyd,kd8iy[;TrustServerCertificate=True;
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+      - Omise__PublicKey=your-omise-public-key
+      - Omise__SecretKey=your-omise-secret-key
+    ports:
+      - "5004:5004"
+    depends_on:
+      # sqlserver:
+      #   condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - elearning-network
+    restart: on-failure
+
+  # Certificate Service
+  certificate-service:
+    build:
+      context: ./backend
+      dockerfile: Services/CertificateService/CertificateService.API/Dockerfile
+    container_name: elearning-certificate-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5005
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CertificateServiceDb;User Id=sa;Password=ojkiyd,kd8iy[;TrustServerCertificate=True;
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    ports:
+      - "5005:5005"
+    depends_on:
+      # sqlserver:
+      #   condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - elearning-network
+    restart: on-failure
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./backend
+      dockerfile: ApiGateway/Dockerfile
+    container_name: elearning-api-gateway
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - user-service
+      - course-service
+      - subscription-service
+      - payment-service
+      - certificate-service
+    networks:
+      - elearning-network
+    restart: on-failure
+
+networks:
+  elearning-network:
+    driver: bridge
+
+volumes:
+  # sqlserver-data:
+  rabbitmq-data:
+  redis-data:
