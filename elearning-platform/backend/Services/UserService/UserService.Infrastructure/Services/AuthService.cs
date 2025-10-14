@@ -20,17 +20,23 @@ namespace UserService.Infrastructure.Services
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly IJwtTokenService _jwtTokenService;
         private readonly IMessageQueueService _messageQueue;
+        private readonly IUserProfileRepository _userProfileRepository;
+        private readonly IUserRoleRepository _userRoleRepository;
 
         public AuthService(
             IUserRepository userRepository,
             IRoleRepository roleRepository,
             IRefreshTokenRepository refreshTokenRepository,
+            IUserProfileRepository userProfileRepository,
+            IUserRoleRepository userRoleRepository,
             IJwtTokenService jwtTokenService,
             IMessageQueueService messageQueue)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
             _refreshTokenRepository = refreshTokenRepository;
+            _userProfileRepository = userProfileRepository;
+            _userRoleRepository = userRoleRepository;
             _jwtTokenService = jwtTokenService;
             _messageQueue = messageQueue;
         }
@@ -64,28 +70,39 @@ namespace UserService.Infrastructure.Services
                 user = await _userRepository.CreateAsync(user);
 
                 // Create user profile
-                user.Profile = new UserProfile
+                // user.Profile = new UserProfile
+                // {
+                //     UserId = user.Id,
+                //     Country = "Thailand"
+                // };
+
+                var profile = new UserProfile
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Country = "Thailand",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _userProfileRepository.CreateAsync(profile);
+
+                
+
+                // Get Student role
+                var studentRole = await _roleRepository.GetByNameAsync("Student");
+                if (studentRole == null)
+                {
+                    throw new InvalidOperationException("Default 'Student' role not found.");
+                }
+
+                // Assign role using repository
+                var userRole = new UserRole
                 {
                     UserId = user.Id,
-                    Country = "Thailand"
+                    RoleId = studentRole.Id,
+                    AssignedAt = DateTime.UtcNow
                 };
-
-                // Assign default "Student" role
-                var studentRole = await _roleRepository.GetByNameAsync("Student");
-                if (studentRole != null)
-                {
-                    await _userRepository.UpdateAsync(user);
-
-                    var userRole = new UserRole
-                    {
-                        UserId = user.Id,
-                        RoleId = studentRole.Id,
-                        AssignedAt = DateTime.UtcNow
-                    };
-
-                    // Add role via direct DbContext operation would be needed here
-                    // For now, assuming it's handled
-                }
+                await _userRoleRepository.CreateAsync(userRole);
 
 
                 // Publish user registered event

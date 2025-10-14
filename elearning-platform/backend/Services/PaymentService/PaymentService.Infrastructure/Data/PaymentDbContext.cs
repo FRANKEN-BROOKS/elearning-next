@@ -119,10 +119,10 @@ namespace PaymentService.Infrastructure.Data
                     .WithMany()
                     .HasForeignKey(e => e.OrderId);
                 
-                entity.HasOne(e => e.Payment)
-                    .WithMany()
-                    .HasForeignKey(e => e.PaymentId)
-                    .OnDelete(DeleteBehavior.SetNull);
+                // entity.HasOne(e => e.Payment)
+                //     .WithMany()
+                //     .HasForeignKey(e => e.PaymentId)
+                //     .OnDelete(DeleteBehavior.SetNull);
             });
         }
     }

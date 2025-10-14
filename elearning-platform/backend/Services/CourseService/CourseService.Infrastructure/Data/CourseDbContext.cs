@@ -111,7 +111,7 @@ namespace CourseService.Infrastructure.Data
                 entity.HasOne(e => e.Course)
                     .WithMany(e => e.Quizzes)
                     .HasForeignKey(e => e.CourseId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(e => e.Topic)
                     .WithMany(e => e.Quizzes)
@@ -154,12 +154,12 @@ namespace CourseService.Infrastructure.Data
                 entity.HasOne(e => e.Course)
                     .WithMany()
                     .HasForeignKey(e => e.CourseId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(e => e.Lesson)
                     .WithMany()
                     .HasForeignKey(e => e.LessonId)
-                    .OnDelete(DeleteBehavior.SetNull);
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // QuizAttempt configuration
