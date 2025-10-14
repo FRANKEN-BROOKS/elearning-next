@@ -86,8 +86,6 @@ namespace UserService.Infrastructure.Repositories
         {
             user.CreatedAt = DateTime.UtcNow;
             user.UpdatedAt = DateTime.UtcNow;
-            user.Profile.CreatedAt = DateTime.UtcNow;
-            user.Profile.UpdatedAt = DateTime.UtcNow;
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
             return user;

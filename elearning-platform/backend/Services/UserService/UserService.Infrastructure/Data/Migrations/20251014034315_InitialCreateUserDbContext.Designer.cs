@@ -12,7 +12,7 @@ using UserService.Infrastructure.Data;
 namespace UserService.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(UserDbContext))]
-    [Migration("20251014031103_InitialCreateUserDbContext")]
+    [Migration("20251014034315_InitialCreateUserDbContext")]
     partial class InitialCreateUserDbContext
     {
         /// <inheritdoc />
@@ -258,7 +258,6 @@ namespace UserService.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("PasswordResetToken")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PhoneNumber")
@@ -267,7 +266,6 @@ namespace UserService.Infrastructure.Data.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("ProfileImageUrl")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
@@ -292,22 +290,18 @@ namespace UserService.Infrastructure.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Address")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("Bio")
-                        .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("City")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Company")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
@@ -322,22 +316,18 @@ namespace UserService.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("LinkedInUrl")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("Occupation")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("PostalCode")
-                        .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("Province")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
@@ -348,7 +338,6 @@ namespace UserService.Infrastructure.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("WebsiteUrl")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 

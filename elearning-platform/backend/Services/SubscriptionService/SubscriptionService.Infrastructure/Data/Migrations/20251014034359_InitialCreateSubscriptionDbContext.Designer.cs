@@ -12,7 +12,7 @@ using SubscriptionService.Infrastructure.Data;
 namespace SubscriptionService.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(SubscriptionDbContext))]
-    [Migration("20251014031141_InitialCreateSubscriptionDbContext")]
+    [Migration("20251014034359_InitialCreateSubscriptionDbContext")]
     partial class InitialCreateSubscriptionDbContext
     {
         /// <inheritdoc />

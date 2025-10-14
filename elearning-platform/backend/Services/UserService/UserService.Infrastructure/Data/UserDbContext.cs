@@ -37,7 +37,9 @@ namespace UserService.Infrastructure.Data
                 entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.PhoneNumber).HasMaxLength(20);
-                entity.Property(e => e.ProfileImageUrl).HasMaxLength(500);
+                entity.Property(e => e.ProfileImageUrl).IsRequired(false).HasMaxLength(500);
+                entity.Property(e => e.PasswordResetExpiry).IsRequired(false);
+                entity.Property(e => e.PasswordResetToken).IsRequired(false);
                 entity.HasIndex(e => e.Email).IsUnique();
 
                 // Relationships
@@ -111,16 +113,16 @@ namespace UserService.Infrastructure.Data
             {
                 entity.ToTable("UserProfiles");
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Bio).HasMaxLength(1000);
-                entity.Property(e => e.Address).HasMaxLength(255);
-                entity.Property(e => e.City).HasMaxLength(100);
-                entity.Property(e => e.Province).HasMaxLength(100);
-                entity.Property(e => e.PostalCode).HasMaxLength(20);
+                entity.Property(e => e.Bio).IsRequired(false).HasMaxLength(1000);
+                entity.Property(e => e.Address).IsRequired(false).HasMaxLength(255);
+                entity.Property(e => e.City).IsRequired(false).HasMaxLength(100);
+                entity.Property(e => e.Province).IsRequired(false).HasMaxLength(100);
+                entity.Property(e => e.PostalCode).IsRequired(false).HasMaxLength(20);
                 entity.Property(e => e.Country).HasMaxLength(100).HasDefaultValue("Thailand");
-                entity.Property(e => e.LinkedInUrl).HasMaxLength(255);
-                entity.Property(e => e.WebsiteUrl).HasMaxLength(255);
-                entity.Property(e => e.Occupation).HasMaxLength(100);
-                entity.Property(e => e.Company).HasMaxLength(100);
+                entity.Property(e => e.LinkedInUrl).IsRequired(false).HasMaxLength(255);
+                entity.Property(e => e.WebsiteUrl).IsRequired(false).HasMaxLength(255);
+                entity.Property(e => e.Occupation).IsRequired(false).HasMaxLength(100);
+                entity.Property(e => e.Company).IsRequired(false).HasMaxLength(100);
             });
 
             // AuditLog entity configuration

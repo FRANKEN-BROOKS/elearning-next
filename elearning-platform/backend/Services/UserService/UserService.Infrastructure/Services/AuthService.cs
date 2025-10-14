@@ -64,7 +64,10 @@ namespace UserService.Infrastructure.Services
                     PhoneNumber = request.PhoneNumber,
                     IsActive = true,
                     IsEmailVerified = false,
-                    EmailVerificationToken = Guid.NewGuid().ToString()
+                    EmailVerificationToken = Guid.NewGuid().ToString(),
+                    PasswordResetToken = "",
+                    ProfileImageUrl = "",
+                    PasswordResetExpiry = DateTime.Now,
                 };
 
                 user = await _userRepository.CreateAsync(user);
@@ -295,7 +298,8 @@ namespace UserService.Infrastructure.Services
                 UserId = user.Id,
                 Token = refreshTokenString,
                 ExpiresAt = DateTime.UtcNow.AddDays(7),
-                IsActive = true
+                IsActive = true,
+                ReplacedByToken = ""
             };
 
             await _refreshTokenRepository.CreateAsync(refreshToken);

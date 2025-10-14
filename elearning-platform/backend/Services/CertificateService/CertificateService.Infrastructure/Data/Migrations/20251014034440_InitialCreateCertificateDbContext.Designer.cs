@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CertificateService.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(CertificateDbContext))]
-    [Migration("20251014031223_InitialCreateCertificateDbContext")]
+    [Migration("20251014034440_InitialCreateCertificateDbContext")]
     partial class InitialCreateCertificateDbContext
     {
         /// <inheritdoc />
