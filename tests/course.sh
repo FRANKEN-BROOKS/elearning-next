@@ -6,7 +6,7 @@
 # ==============================================================================
 
 # Configuration
-BASE_URL="http://localhost:5001"  # Change this to your Course API base URL
+BASE_URL="http://localhost:5002"  # Change this to your Course API base URL
 USER_API_URL="http://localhost:5000"  # User Service API for authentication
 API_BASE="${BASE_URL}/api"
 
@@ -63,36 +63,6 @@ print_response() {
     echo "$1" | jq '.' 2>/dev/null || echo "$1"
 }
 
-print_error_details() {
-    local response="$1"
-    local test_name="$2"
-    
-    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${RED}ERROR in: $test_name${NC}"
-    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    
-    # Try to extract error details
-    local success=$(echo "$response" | jq -r '.success // "unknown"' 2>/dev/null)
-    local message=$(echo "$response" | jq -r '.message // "No message"' 2>/dev/null)
-    local errors=$(echo "$response" | jq -r '.errors[]? // empty' 2>/dev/null)
-    local status=$(echo "$response" | jq -r '.statusCode // "unknown"' 2>/dev/null)
-    
-    echo -e "${YELLOW}Status Code:${NC} $status"
-    echo -e "${YELLOW}Success:${NC} $success"
-    echo -e "${YELLOW}Message:${NC} $message"
-    
-    if [ -n "$errors" ]; then
-        echo -e "${YELLOW}Errors:${NC}"
-        echo "$errors" | while read -r error; do
-            echo "  - $error"
-        done
-    fi
-    
-    echo -e "\n${YELLOW}Full Response:${NC}"
-    print_response "$response"
-    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
-}
-
 # ==============================================================================
 # Authentication Functions
 # ==============================================================================
@@ -102,7 +72,7 @@ setup_authentication() {
     
     print_step "Registering instructor user..."
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${USER_API_URL}/api/Auth/register" \
+    RESPONSE=$(curl -s -X POST "${USER_API_URL}/api/Auth/register" \
         -H "Content-Type: application/json" \
         -d "{
             \"email\": \"${TEST_EMAIL}\",
@@ -112,19 +82,15 @@ setup_authentication() {
             \"phoneNumber\": \"+1234567890\"
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
-    
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    
-    ACCESS_TOKEN=$(echo "$BODY" | jq -r '.data.accessToken // empty')
-    USER_ID=$(echo "$BODY" | jq -r '.data.user.id // empty')
+    ACCESS_TOKEN=$(echo "$RESPONSE" | jq -r '.data.accessToken // empty')
+    USER_ID=$(echo "$RESPONSE" | jq -r '.data.user.id // empty')
     
     if [ -n "$ACCESS_TOKEN" ] && [ -n "$USER_ID" ]; then
         print_success "Authentication successful! Instructor ID: $USER_ID"
         return 0
     else
-        print_error_details "$BODY" "Authentication Setup"
+        print_error "Authentication failed!"
+        print_response "$RESPONSE"
         return 1
     fi
 }
@@ -136,7 +102,7 @@ setup_authentication() {
 test_create_category() {
     print_header "TEST 1: Create Category"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE}/categories" \
+    RESPONSE=$(curl -s -X POST "${API_BASE}/categories" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -147,19 +113,15 @@ test_create_category() {
             \"isActive\": true
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    CATEGORY_ID=$(echo "$BODY" | jq -r '.data.id // empty')
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    CATEGORY_ID=$(echo "$RESPONSE" | jq -r '.data.id // empty')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ] && [ -n "$CATEGORY_ID" ]; then
         print_success "Category created! ID: $CATEGORY_ID"
     else
-        print_error_details "$BODY" "Create Category"
+        print_error "Failed to create category"
         return 1
     fi
 }
@@ -167,21 +129,17 @@ test_create_category() {
 test_get_all_categories() {
     print_header "TEST 2: Get All Categories"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/categories" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/categories" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved all categories"
     else
-        print_error_details "$BODY" "Get All Categories"
+        print_error "Failed to retrieve categories"
     fi
 }
 
@@ -190,28 +148,24 @@ test_get_category_by_id() {
     
     print_info "Getting category: $CATEGORY_ID"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/categories/${CATEGORY_ID}" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/categories/${CATEGORY_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved category by ID"
     else
-        print_error_details "$BODY" "Get Category By ID"
+        print_error "Failed to retrieve category"
     fi
 }
 
 test_update_category() {
     print_header "TEST 4: Update Category"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT "${API_BASE}/categories/${CATEGORY_ID}" \
+    RESPONSE=$(curl -s -X PUT "${API_BASE}/categories/${CATEGORY_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -222,18 +176,14 @@ test_update_category() {
             \"isActive\": true
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Category updated successfully"
     else
-        print_error_details "$BODY" "Update Category"
+        print_error "Failed to update category"
     fi
 }
 
@@ -244,7 +194,7 @@ test_update_category() {
 test_create_course() {
     print_header "TEST 5: Create Course"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE}/courses" \
+    RESPONSE=$(curl -s -X POST "${API_BASE}/courses" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -261,19 +211,15 @@ test_create_course() {
             \"discountPriceThb\": 999.00
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    COURSE_ID=$(echo "$BODY" | jq -r '.data.id // empty')
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    COURSE_ID=$(echo "$RESPONSE" | jq -r '.data.id // empty')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ] && [ -n "$COURSE_ID" ]; then
         print_success "Course created! ID: $COURSE_ID"
     else
-        print_error_details "$BODY" "Create Course"
+        print_error "Failed to create course"
         return 1
     fi
 }
@@ -281,21 +227,17 @@ test_create_course() {
 test_get_all_courses() {
     print_header "TEST 6: Get All Courses (Paginated)"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/courses?PageNumber=1&PageSize=10&SortBy=createdAt&SortOrder=desc" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/courses?PageNumber=1&PageSize=10&SortBy=createdAt&SortOrder=desc" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved courses list"
     else
-        print_error_details "$BODY" "Get All Courses"
+        print_error "Failed to retrieve courses"
     fi
 }
 
@@ -304,28 +246,24 @@ test_get_course_by_id() {
     
     print_info "Getting course: $COURSE_ID"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/courses/${COURSE_ID}" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/courses/${COURSE_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved course by ID"
     else
-        print_error_details "$BODY" "Get Course By ID"
+        print_error "Failed to retrieve course"
     fi
 }
 
 test_update_course() {
     print_header "TEST 8: Update Course"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT "${API_BASE}/courses/${COURSE_ID}" \
+    RESPONSE=$(curl -s -X PUT "${API_BASE}/courses/${COURSE_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -342,81 +280,65 @@ test_update_course() {
             \"metaKeywords\": \"javascript, programming, web development\"
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Course updated successfully"
     else
-        print_error_details "$BODY" "Update Course"
+        print_error "Failed to update course"
     fi
 }
 
 test_get_courses_by_category() {
     print_header "TEST 9: Get Courses By Category"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/courses?categoryId=${CATEGORY_ID}&PageNumber=1&PageSize=10" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/courses?categoryId=${CATEGORY_ID}&PageNumber=1&PageSize=10" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved courses by category"
     else
-        print_error_details "$BODY" "Get Courses By Category"
+        print_error "Failed to retrieve courses by category"
     fi
 }
 
 test_get_courses_by_instructor() {
     print_header "TEST 10: Get Courses By Instructor"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/courses/instructor/${USER_ID}" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/courses/instructor/${USER_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved courses by instructor"
     else
-        print_error_details "$BODY" "Get Courses By Instructor"
+        print_error "Failed to retrieve courses by instructor"
     fi
 }
 
 test_get_featured_courses() {
     print_header "TEST 11: Get Featured Courses"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/courses/featured?count=5" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/courses/featured?count=5" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved featured courses"
     else
-        print_error_details "$BODY" "Get Featured Courses"
+        print_error "Failed to retrieve featured courses"
     fi
 }
 
@@ -427,7 +349,7 @@ test_get_featured_courses() {
 test_create_topic() {
     print_header "TEST 12: Create Course Topic"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE}/topics" \
+    RESPONSE=$(curl -s -X POST "${API_BASE}/topics" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -437,19 +359,15 @@ test_create_topic() {
             \"displayOrder\": 1
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    TOPIC_ID=$(echo "$BODY" | jq -r '.data.id // empty')
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    TOPIC_ID=$(echo "$RESPONSE" | jq -r '.data.id // empty')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ] && [ -n "$TOPIC_ID" ]; then
         print_success "Topic created! ID: $TOPIC_ID"
     else
-        print_error_details "$BODY" "Create Topic"
+        print_error "Failed to create topic"
         return 1
     fi
 }
@@ -457,49 +375,41 @@ test_create_topic() {
 test_get_topics_by_course() {
     print_header "TEST 13: Get Topics By Course"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/topics/course/${COURSE_ID}" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/topics/course/${COURSE_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved topics by course"
     else
-        print_error_details "$BODY" "Get Topics By Course"
+        print_error "Failed to retrieve topics"
     fi
 }
 
 test_get_topic_by_id() {
     print_header "TEST 14: Get Topic By ID"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/topics/${TOPIC_ID}" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/topics/${TOPIC_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved topic by ID"
     else
-        print_error_details "$BODY" "Get Topic By ID"
+        print_error "Failed to retrieve topic"
     fi
 }
 
 test_update_topic() {
     print_header "TEST 15: Update Topic"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT "${API_BASE}/topics/${TOPIC_ID}" \
+    RESPONSE=$(curl -s -X PUT "${API_BASE}/topics/${TOPIC_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -509,18 +419,14 @@ test_update_topic() {
             \"displayOrder\": 1
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Topic updated successfully"
     else
-        print_error_details "$BODY" "Update Topic"
+        print_error "Failed to update topic"
     fi
 }
 
@@ -531,7 +437,7 @@ test_update_topic() {
 test_create_lesson() {
     print_header "TEST 16: Create Lesson"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE}/lessons" \
+    RESPONSE=$(curl -s -X POST "${API_BASE}/lessons" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -544,19 +450,15 @@ test_create_lesson() {
             \"isFree\": true
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    LESSON_ID=$(echo "$BODY" | jq -r '.data.id // empty')
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    LESSON_ID=$(echo "$RESPONSE" | jq -r '.data.id // empty')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ] && [ -n "$LESSON_ID" ]; then
         print_success "Lesson created! ID: $LESSON_ID"
     else
-        print_error_details "$BODY" "Create Lesson"
+        print_error "Failed to create lesson"
         return 1
     fi
 }
@@ -564,49 +466,41 @@ test_create_lesson() {
 test_get_lessons_by_topic() {
     print_header "TEST 17: Get Lessons By Topic"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/lessons/topic/${TOPIC_ID}" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/lessons/topic/${TOPIC_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved lessons by topic"
     else
-        print_error_details "$BODY" "Get Lessons By Topic"
+        print_error "Failed to retrieve lessons"
     fi
 }
 
 test_get_lesson_by_id() {
     print_header "TEST 18: Get Lesson By ID"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/lessons/${LESSON_ID}" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/lessons/${LESSON_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved lesson by ID"
     else
-        print_error_details "$BODY" "Get Lesson By ID"
+        print_error "Failed to retrieve lesson"
     fi
 }
 
 test_update_lesson() {
     print_header "TEST 19: Update Lesson"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT "${API_BASE}/lessons/${LESSON_ID}" \
+    RESPONSE=$(curl -s -X PUT "${API_BASE}/lessons/${LESSON_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -619,18 +513,14 @@ test_update_lesson() {
             \"isFree\": true
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Lesson updated successfully"
     else
-        print_error_details "$BODY" "Update Lesson"
+        print_error "Failed to update lesson"
     fi
 }
 
@@ -641,7 +531,7 @@ test_update_lesson() {
 test_create_quiz() {
     print_header "TEST 20: Create Quiz"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE}/quizzes" \
+    RESPONSE=$(curl -s -X POST "${API_BASE}/quizzes" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -654,19 +544,15 @@ test_create_quiz() {
             \"maxAttempts\": 3
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    QUIZ_ID=$(echo "$BODY" | jq -r '.data.id // empty')
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    QUIZ_ID=$(echo "$RESPONSE" | jq -r '.data.id // empty')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ] && [ -n "$QUIZ_ID" ]; then
         print_success "Quiz created! ID: $QUIZ_ID"
     else
-        print_error_details "$BODY" "Create Quiz"
+        print_error "Failed to create quiz"
         return 1
     fi
 }
@@ -674,7 +560,7 @@ test_create_quiz() {
 test_create_quiz_question() {
     print_header "TEST 21: Create Quiz Question"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE}/quizzes/questions" \
+    RESPONSE=$(curl -s -X POST "${API_BASE}/quizzes/questions" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -707,62 +593,50 @@ test_create_quiz_question() {
             ]
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    QUESTION_ID=$(echo "$BODY" | jq -r '.data.id // empty')
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    QUESTION_ID=$(echo "$RESPONSE" | jq -r '.data.id // empty')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ] && [ -n "$QUESTION_ID" ]; then
-        OPTION_ID=$(echo "$BODY" | jq -r '.data.options[0].id // empty')
+        OPTION_ID=$(echo "$RESPONSE" | jq -r '.data.options[0].id // empty')
         print_success "Question created! ID: $QUESTION_ID"
     else
-        print_error_details "$BODY" "Create Quiz Question"
+        print_error "Failed to create question"
     fi
 }
 
 test_get_quiz_by_id() {
     print_header "TEST 22: Get Quiz By ID"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/quizzes/${QUIZ_ID}" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/quizzes/${QUIZ_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved quiz by ID"
     else
-        print_error_details "$BODY" "Get Quiz By ID"
+        print_error "Failed to retrieve quiz"
     fi
 }
 
 test_get_quizzes_by_course() {
     print_header "TEST 23: Get Quizzes By Course"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/quizzes/course/${COURSE_ID}" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/quizzes/course/${COURSE_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved quizzes by course"
     else
-        print_error_details "$BODY" "Get Quizzes By Course"
+        print_error "Failed to retrieve quizzes"
     fi
 }
 
@@ -771,7 +645,7 @@ test_submit_quiz() {
     
     print_info "Submitting quiz with correct answer"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE}/quizzes/${QUIZ_ID}/submit" \
+    RESPONSE=$(curl -s -X POST "${API_BASE}/quizzes/${QUIZ_ID}/submit" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{
@@ -784,63 +658,51 @@ test_submit_quiz() {
             ]
         }")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
-    SCORE=$(echo "$BODY" | jq -r '.data.score // 0')
-    IS_PASSED=$(echo "$BODY" | jq -r '.data.isPassed // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
+    SCORE=$(echo "$RESPONSE" | jq -r '.data.score // 0')
+    IS_PASSED=$(echo "$RESPONSE" | jq -r '.data.isPassed // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Quiz submitted! Score: $SCORE%, Passed: $IS_PASSED"
     else
-        print_error_details "$BODY" "Submit Quiz"
+        print_error "Failed to submit quiz"
     fi
 }
 
 test_get_quiz_attempts() {
     print_header "TEST 25: Get Quiz Attempts"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/quizzes/${QUIZ_ID}/attempts/${USER_ID}" \
+    RESPONSE=$(curl -s -X GET "${API_BASE}/quizzes/${QUIZ_ID}/attempts/${USER_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
     
     if [ "$SUCCESS" = "true" ]; then
         print_success "Retrieved quiz attempts"
     else
-        print_error_details "$BODY" "Get Quiz Attempts"
+        print_error "Failed to retrieve quiz attempts"
     fi
 }
 
 test_publish_course() {
     print_header "TEST 26: Publish Course"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE}/courses/${COURSE_ID}/publish" \
+    RESPONSE=$(curl -s -X POST "${API_BASE}/courses/${COURSE_ID}/publish" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | sed '$d')
+    print_response "$RESPONSE"
     
-    echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    print_response "$BODY"
-    
-    SUCCESS=$(echo "$BODY" | jq -r '.success // false')
-    IS_PUBLISHED=$(echo "$BODY" | jq -r '.data.isPublished // false')
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
+    IS_PUBLISHED=$(echo "$RESPONSE" | jq -r '.data.isPublished // false')
     
     if [ "$SUCCESS" = "true" ] && [ "$IS_PUBLISHED" = "true" ]; then
         print_success "Course published successfully"
     else
-        print_error_details "$BODY" "Publish Course"
+        print_error "Failed to publish course"
     fi
 }
 
@@ -848,34 +710,28 @@ test_get_course_by_slug() {
     print_header "TEST 27: Get Course By Slug"
     
     # First get the slug from the course
-    SLUG_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/courses/${COURSE_ID}" \
+    SLUG_RESPONSE=$(curl -s -X GET "${API_BASE}/courses/${COURSE_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}")
     
-    SLUG_BODY=$(echo "$SLUG_RESPONSE" | sed '$d')
-    SLUG=$(echo "$SLUG_BODY" | jq -r '.data.slug // empty')
+    SLUG=$(echo "$SLUG_RESPONSE" | jq -r '.data.slug // empty')
     
     if [ -n "$SLUG" ]; then
         print_info "Using slug: $SLUG"
         
-        RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/courses/slug/${SLUG}" \
+        RESPONSE=$(curl -s -X GET "${API_BASE}/courses/slug/${SLUG}" \
             -H "Authorization: Bearer ${ACCESS_TOKEN}")
         
-        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-        BODY=$(echo "$RESPONSE" | sed '$d')
+        print_response "$RESPONSE"
         
-        echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-        print_response "$BODY"
-        
-        SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+        SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
         
         if [ "$SUCCESS" = "true" ]; then
             print_success "Retrieved course by slug"
         else
-            print_error_details "$BODY" "Get Course By Slug"
+            print_error "Failed to retrieve course by slug"
         fi
     else
         print_error "Could not retrieve course slug"
-        print_error_details "$SLUG_BODY" "Get Course Slug"
     fi
 }
 
@@ -890,12 +746,9 @@ test_delete_lesson() {
     print_info "Uncomment to test deletion: DELETE ${API_BASE}/lessons/${LESSON_ID}"
     
     # Uncomment to test:
-    # RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE "${API_BASE}/lessons/${LESSON_ID}" \
+    # RESPONSE=$(curl -s -X DELETE "${API_BASE}/lessons/${LESSON_ID}" \
     #     -H "Authorization: Bearer ${ACCESS_TOKEN}")
-    # HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    # BODY=$(echo "$RESPONSE" | sed '$d')
-    # echo -e "${YELLOW}HTTP Status Code: ${HTTP_CODE}${NC}"
-    # print_response "$BODY"
+    # print_response "$RESPONSE"
 }
 
 test_delete_quiz() {

@@ -50,6 +50,8 @@ if (jwtSettings.Exists())
 // Add Ocelot
 builder.Services.AddOcelot();
 
+builder.Services.AddSwaggerForOcelot(builder.Configuration);
+
 // Health checks
 builder.Services.AddHealthChecks();
 
@@ -68,6 +70,19 @@ app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapGet("/", () => "API Gateway is running");
+
+app.UseSwaggerForOcelotUI(opt =>
+{
+    opt.PathToSwaggerGenerator = "/swagger/docs";
+    opt.ReConfigureUpstreamSwaggerJson = AlterUpstreamSwaggerJson;
+});
+
+static string AlterUpstreamSwaggerJson(HttpContext context, string swaggerJson)
+{
+    // Optional: Transform swagger JSON if needed
+    return swaggerJson;
+}
+
 
 // Use Ocelot middleware
 await app.UseOcelot();
